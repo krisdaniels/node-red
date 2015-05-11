@@ -32,6 +32,28 @@ module.exports = function(RED) {
         'nnull': function(a) { return (typeof a != "undefined" && a !== null); },
         'else': function(a) { return a === true; }
     };
+    
+    var getValueToCheckFromMsg = function (value, msg) {
+        // if value undefined or null return the value itself
+        if (!value) {
+            return value;
+        }
+        
+        // split the msg. in parts to recude
+        var valuePropertyParts = value.split(".");
+
+        if (valuePropertyParts[0] === "msg") {
+            // remove first element
+            valuePropertyParts.shift();
+            // get value from msg object
+            return valuePropertyParts.reduce(function (obj, i) {
+                return obj[i]
+            }, msg);
+        } else {
+            // value does not contain mgs., return the value itself
+            return value;
+        }
+    };
 
     function SwitchNode(n) {
         RED.nodes.createNode(this, n);
@@ -60,7 +82,13 @@ module.exports = function(RED) {
                     var rule = node.rules[i];
                     var test = prop;
                     if (rule.t == "else") { test = elseflag; elseflag = true; }
-                    if (operators[rule.t](test,rule.v, rule.v2)) {
+                    var v = rule.v,
+                        v2 = rule.v2;
+                    
+                    v = getValueToCheckFromMsg(v, msg);
+                    v2 = getValueToCheckFromMsg(v2, msg);                    
+
+                    if (operators[rule.t](test, v, v2)) {
                         onward.push(msg);
                         elseflag = false;
                         if (node.checkall == "false") { break; }
